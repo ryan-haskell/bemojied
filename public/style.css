@@ -1,0 +1,76 @@
+html, body {
+  background-color: #333;
+  color: white;
+}
+
+.font-title {
+  font-family: 'Jaldi', sans-serif;
+  font-size: 15vmin;
+  font-weight: bold;
+  text-shadow: 0 2vw 4vw rgba(0, 0, 0, 0.25);
+}
+
+.font-subtitle {
+  opacity: 0.65;
+  font-size: 4vmin;
+}
+
+.button {
+  font-family: 'Jaldi', sans-serif;
+  font-size: 6vmin;
+  background-color: dodgerblue;
+  color: white;
+  border-radius: 2vmin;
+  padding: 0.5em 1.25em;
+  box-shadow: 0 2vw 4vw rgba(0, 0, 0, 0.25);
+  text-shadow: 0 1em 2em rgba(0, 0, 0, 0.15);
+}
+
+.button--danger {
+  background-color: indianred;
+}
+
+.grid__cell {
+  width: 13vmin;
+  height: 13vmin;
+  padding: 1vmin;
+  cursor: pointer;
+}
+
+/* EMOJI */
+.emoji {
+  width: 100%;
+  padding-bottom: 100%;
+  background-position: center;
+  background-size: contain;
+  background-repeat: no-repeat;
+  font-size: 1vmin;
+  filter: drop-shadow(0 1em 0.5em #0008);
+}
+
+.emoji:hover {
+  animation: bob 1s ease-in-out;
+}
+
+.grid__cell--poof {
+  animation: poof 1s ease-in-out forwards;
+}
+
+.emoji--bear  { background-image: url('/emojis/bear.png'); }
+.emoji--cat   { background-image: url('/emojis/cat.png'); }
+.emoji--dog   { background-image: url('/emojis/dog.png'); }
+.emoji--fox   { background-image: url('/emojis/fox.png'); }
+.emoji--frog  { background-image: url('/emojis/frog.png'); }
+.emoji--mouse { background-image: url('/emojis/mouse.png'); }
+.emoji--pig   { background-image: url('/emojis/pig.png'); }
+
+
+@keyframes bob {
+  0%, 100% { transform: none; }
+  50% {  transform: translateY(-5%); }
+}
+@keyframes poof {
+  0% { transform: none; }
+  50% {  transform: scale(1.2); }
+  100% { transform: scale(0); }
+}

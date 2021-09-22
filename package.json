@@ -1,0 +1,17 @@
+{
+  "name": "fremojied",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "elm": "^0.19.1-5",
+    "vite": "^2.5.10",
+    "vite-plugin-elm": "^2.5.0"
+  }
+}
