@@ -8,6 +8,7 @@ import Html exposing (Html)
 import Html.Attributes as Attr
 import Html.Events
 import Json.Decode as Json
+import Ports
 import Time
 
 
@@ -81,16 +82,26 @@ update msg model =
             )
 
         PlayGameClicked ->
+            let
+                grid : Game.Grid.Grid
+                grid =
+                    Game.Grid.create
+                        { seed = Time.posixToMillis model.currentTime
+                        }
+
+                saveData =
+                    Game.SaveData.updateHighScore
+                        { current = Game.Grid.currentScore grid }
+                        model.saveData
+            in
             ( { model
                 | screen =
                     InGame
-                        { grid =
-                            Game.Grid.create
-                                { seed = Time.posixToMillis model.currentTime
-                                }
+                        { grid = grid
                         }
+                , saveData = saveData
               }
-            , Cmd.none
+            , Ports.saveGame saveData
             )
 
         QuitGameClicked ->
@@ -134,6 +145,14 @@ viewMainMenu model =
         , Html.button [ Attr.class "button", Html.Events.onClick PlayGameClicked ]
             [ Html.text "Play"
             ]
+        , case Game.SaveData.highScore model.saveData of
+            Just score ->
+                Html.h2 [ Attr.class "font-subtitle" ]
+                    [ Html.text ("Highscore: " ++ String.fromInt score)
+                    ]
+
+            Nothing ->
+                Html.text ""
         ]
 
 

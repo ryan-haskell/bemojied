@@ -1,4 +1,4 @@
-module Game.Grid exposing (Grid, create, view)
+module Game.Grid exposing (Grid, create, currentScore, view)
 
 import Array exposing (Array)
 import Html exposing (Html)
@@ -88,6 +88,11 @@ view options =
         , Html.div [ Attr.class "col" ]
             (List.map viewRow listOfLists)
         ]
+
+
+currentScore : Grid -> Int
+currentScore grid =
+    scoresFromGroups (checkForScoringGroups grid)
 
 
 
