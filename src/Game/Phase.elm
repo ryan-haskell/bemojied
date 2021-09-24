@@ -110,6 +110,7 @@ next { grid, animationMsg, score, phase } =
                 { update
                     | phase = AnimatingScore
                     , grid = settledGrid
+                    , score = newScore
                     , cmd = animation
                 }
 
