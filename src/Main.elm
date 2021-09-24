@@ -3,6 +3,8 @@ module Main exposing (main)
 import Browser
 import Browser.Events
 import Game.Grid
+import Game.Phase
+import Game.Position exposing (Position)
 import Game.SaveData
 import Html exposing (Html)
 import Html.Attributes as Attr
@@ -48,6 +50,8 @@ type Screen
 
 type alias State =
     { grid : Game.Grid.Grid
+    , selected : Maybe Position
+    , phase : Game.Phase.Phase
     }
 
 
@@ -71,6 +75,8 @@ type Msg
     | PlayGameClicked
     | QuitGameClicked
     | Tick Time.Posix
+    | AnimationCompleted
+    | ClickedEmoji Position
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -91,13 +97,15 @@ update msg model =
 
                 saveData =
                     Game.SaveData.updateHighScore
-                        { current = Game.Grid.currentScore grid }
+                        { current = Game.Grid.currentPointsOnBoard grid }
                         model.saveData
             in
             ( { model
                 | screen =
                     InGame
                         { grid = grid
+                        , selected = Nothing
+                        , phase = Game.Phase.init
                         }
                 , saveData = saveData
               }
@@ -114,6 +122,97 @@ update msg model =
             , Cmd.none
             )
 
+        ClickedEmoji clickedPosition ->
+            case model.screen of
+                MainMenu ->
+                    ( model, Cmd.none )
+
+                InGame state ->
+                    case state.phase of
+                        Game.Phase.WaitingForUser ->
+                            let
+                                ( nextPhase, cmd ) =
+                                    case cellsToSwap of
+                                        Just _ ->
+                                            Game.Phase.next
+                                                { boardHasPoints = Game.Grid.currentPointsOnBoard state.grid > 0
+                                                , animationMsg = AnimationCompleted
+                                                , phase = state.phase
+                                                }
+
+                                        Nothing ->
+                                            ( state.phase, Cmd.none )
+
+                                ( selected, cellsToSwap ) =
+                                    case state.selected of
+                                        Just selectedPosition ->
+                                            if clickedPosition == selectedPosition then
+                                                ( Nothing, Nothing )
+
+                                            else if Game.Position.isAdjacent clickedPosition selectedPosition then
+                                                ( Nothing, Just ( clickedPosition, selectedPosition ) )
+
+                                            else
+                                                ( Just clickedPosition, Nothing )
+
+                                        Nothing ->
+                                            ( Just clickedPosition, Nothing )
+                            in
+                            ( { model
+                                | screen =
+                                    InGame
+                                        { state
+                                            | selected = selected
+                                            , phase = nextPhase
+                                            , grid =
+                                                case cellsToSwap of
+                                                    Just ( a, b ) ->
+                                                        Game.Grid.swap a b state.grid
+
+                                                    Nothing ->
+                                                        state.grid
+                                        }
+                              }
+                            , cmd
+                            )
+
+                        _ ->
+                            ( model, Cmd.none )
+
+        AnimationCompleted ->
+            case model.screen of
+                MainMenu ->
+                    ( model, Cmd.none )
+
+                InGame state ->
+                    let
+                        grid =
+                            Game.Grid.settle state.grid
+
+                        ( nextPhase, cmd ) =
+                            Game.Phase.next
+                                { boardHasPoints = Game.Grid.currentPointsOnBoard grid > 0
+                                , animationMsg = AnimationCompleted
+                                , phase = state.phase
+                                }
+                    in
+                    ( { model
+                        | screen =
+                            InGame
+                                { state
+                                    | phase = nextPhase
+                                    , grid =
+                                        case ( state.phase, nextPhase ) of
+                                            ( Game.Phase.AnimatingSwap, Game.Phase.AnimatingUndoSwap ) ->
+                                                Game.Grid.undoSwap state.grid
+
+                                            _ ->
+                                                grid
+                                }
+                      }
+                    , cmd
+                    )
+
 
 
 -- VIEW
@@ -129,7 +228,10 @@ view model =
                     viewMainMenu model
 
                 InGame state ->
-                    viewInGame model state
+                    Html.div [ Attr.class "col fill-y" ]
+                        [ Html.text (Debug.toString state.phase)
+                        , viewInGame model state
+                        ]
             ]
         ]
     }
@@ -159,7 +261,11 @@ viewMainMenu model =
 viewInGame : Model -> State -> Html Msg
 viewInGame model state =
     Html.div [ Attr.class "col center fill-y" ]
-        [ Game.Grid.view { grid = state.grid }
+        [ Game.Grid.view
+            { selected = state.selected
+            , grid = state.grid
+            , onClick = ClickedEmoji
+            }
         , Html.div [ Attr.class "fixed align-bottom pad-y-lg" ]
             [ Html.button [ Attr.class "button button--danger", Html.Events.onClick QuitGameClicked ]
                 [ Html.text "Quit game"

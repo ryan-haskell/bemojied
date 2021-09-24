@@ -36,8 +36,15 @@ html, body {
   cursor: pointer;
 }
 
+/* SLIDING */
+
+.animated__cell {
+  transition: transform 1000ms ease-in-out;
+}
+
 /* EMOJI */
 .emoji {
+  display: inline-flex;
   width: 100%;
   padding-bottom: 100%;
   background-position: center;
@@ -47,10 +54,6 @@ html, body {
   filter: drop-shadow(0 1em 0.5em #0008);
 }
 
-/* .emoji:hover {
-  animation: bob 1s ease-in-out;
-} */
-
 .emoji--bear  { background-image: url('/emojis/bear.png'); }
 .emoji--cat   { background-image: url('/emojis/cat.png'); }
 .emoji--dog   { background-image: url('/emojis/dog.png'); }
@@ -59,6 +62,10 @@ html, body {
 .emoji--mouse { background-image: url('/emojis/mouse.png'); }
 .emoji--pig   { background-image: url('/emojis/pig.png'); }
 
+
+.emoji--selected {
+  animation: bob 1s ease-in-out infinite;
+}
 
 .emoji--poof {
   animation: poof 1s ease-in-out forwards;

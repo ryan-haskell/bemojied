@@ -1,8 +1,19 @@
-module Game.Grid exposing (Grid, create, currentScore, view)
+module Game.Grid exposing
+    ( Grid
+    , create
+    , currentPointsOnBoard
+    , settle
+    , swap
+    , undoSwap
+    , view
+    )
 
 import Array exposing (Array)
+import Dict exposing (Dict)
+import Game.Position exposing (Position)
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Events
 import Html.Keyed
 import List.Extra
 import Random
@@ -12,7 +23,7 @@ import Random.Array
 config : { size : Int, allowLuckyStart : Bool }
 config =
     { size = 7
-    , allowLuckyStart = True
+    , allowLuckyStart = False
     }
 
 
@@ -44,14 +55,73 @@ type alias Indexed value =
     ( Position, value )
 
 
-type alias Position =
-    ( Int, Int )
+swap : Position -> Position -> Grid -> Grid
+swap p1 p2 (Grid grid) =
+    Grid
+        { grid
+            | transforms =
+                grid.transforms
+                    |> Dict.insert p1 { current = p1, target = p2 }
+                    |> Dict.insert p2 { current = p2, target = p1 }
+        }
 
 
-view : { grid : Grid } -> Html msg
+undoSwap : Grid -> Grid
+undoSwap (Grid grid) =
+    Grid
+        { grid
+            | transforms =
+                grid.transforms
+                    |> Dict.toList
+                    |> List.map (\( current, transform ) -> ( current, { transform | target = transform.current } ))
+                    |> Dict.fromList
+        }
+
+
+settle : Grid -> Grid
+settle (Grid grid) =
+    Grid
+        { grid
+            | arrays =
+                List.foldl
+                    (\{ current, target } arrays ->
+                        case getEmojiAt current grid.arrays of
+                            Just e ->
+                                setEmojiAt target e arrays
+
+                            Nothing ->
+                                arrays
+                    )
+                    grid.arrays
+                    (Dict.values grid.transforms)
+            , transforms = Dict.empty
+        }
+
+
+setEmojiAt : Position -> Emoji -> Array (Array Emoji) -> Array (Array Emoji)
+setEmojiAt ( x, y ) e array =
+    case Array.get y array of
+        Just inner ->
+            Array.set y (Array.set x e inner) array
+
+        Nothing ->
+            array
+
+
+getEmojiAt : Position -> Array (Array Emoji) -> Maybe Emoji
+getEmojiAt ( x, y ) arrays =
+    arrays |> Array.get y |> Maybe.andThen (Array.get x)
+
+
+view :
+    { onClick : Position -> msg
+    , selected : Maybe Position
+    , grid : Grid
+    }
+    -> Html msg
 view options =
     let
-        (Grid { arrays }) =
+        (Grid { arrays, transforms }) =
             options.grid
 
         listOfLists : List (List (Indexed Emoji))
@@ -81,21 +151,31 @@ view options =
                 vmin num =
                     String.fromInt num ++ "vmin"
             in
-            Html.div [ Attr.class "grid__cell" ]
-                [ Html.Keyed.node "div"
-                    [ Attr.style "position" "absolute"
-                    , Attr.style "top" (vmin (size * y))
-                    , Attr.style "left" (vmin (size * x))
-                    , Attr.style "width" (vmin size)
-                    , Attr.style "height" (vmin size)
-                    ]
-                    [ ( idToString emoji_.id
-                      , viewEmoji
-                            { shouldPoof = List.member position scoringPositions
+            Html.Keyed.node "div"
+                [ Attr.class "grid__cell" ]
+                [ ( idToString emoji_.id
+                  , Html.div
+                        [ Attr.class "animated__cell"
+                        , Attr.style "position" "absolute"
+                        , case Dict.get position transforms of
+                            Just transform ->
+                                toCssTransform transform
+
+                            Nothing ->
+                                Attr.style "transform" "none"
+                        , Attr.style "top" (vmin (size * y))
+                        , Attr.style "left" (vmin (size * x))
+                        , Attr.style "width" (vmin size)
+                        , Attr.style "height" (vmin size)
+                        ]
+                        [ viewEmoji
+                            { onClick = options.onClick position
+                            , isSelected = options.selected == Just position
+                            , shouldPoof = List.member position scoringPositions
                             }
                             emoji_
-                      )
-                    ]
+                        ]
+                  )
                 ]
     in
     Html.div [ Attr.class "col gap-md center-x" ]
@@ -105,8 +185,8 @@ view options =
         ]
 
 
-currentScore : Grid -> Int
-currentScore grid =
+currentPointsOnBoard : Grid -> Int
+currentPointsOnBoard grid =
     scoresFromGroups (checkForScoringGroups grid)
 
 
@@ -116,7 +196,22 @@ currentScore grid =
 
 type alias Internals =
     { arrays : Array (Array Emoji)
+    , transforms : Dict Position Transform
     }
+
+
+type alias Transform =
+    { current : Position
+    , target : Position
+    }
+
+
+toCssTransform : Transform -> Html.Attribute msg
+toCssTransform { current, target } =
+    "translate(${x}00%, ${y}00%)"
+        |> String.replace "${x}" (String.fromInt (Tuple.first target - Tuple.first current))
+        |> String.replace "${y}" (String.fromInt (Tuple.second target - Tuple.second current))
+        |> Attr.style "transform"
 
 
 type alias Emoji =
@@ -146,8 +241,9 @@ type EmojiStyle
 
 generator : Random.Generator Internals
 generator =
-    Random.map Internals
+    Random.map2 Internals
         (Random.Array.array config.size (Random.Array.array config.size emoji))
+        (Random.constant Dict.empty)
 
 
 emoji : Random.Generator Emoji
@@ -171,17 +267,23 @@ id =
         (Random.int 0 Random.maxInt)
 
 
-viewEmoji : { shouldPoof : Bool } -> Emoji -> Html msg
-viewEmoji { shouldPoof } emoji_ =
+viewEmoji :
+    { onClick : msg
+    , isSelected : Bool
+    , shouldPoof : Bool
+    }
+    -> Emoji
+    -> Html msg
+viewEmoji { onClick, isSelected, shouldPoof } emoji_ =
     let
         image : String -> Html msg
         image name =
-            Html.div
-                [ Attr.class ("emoji emoji--" ++ name)
+            Html.button
+                [ Html.Events.onClick onClick
+                , Attr.class ("emoji emoji--" ++ name)
                 , Attr.classList
-                    [ ( "emoji--poof"
-                      , shouldPoof
-                      )
+                    [ ( "emoji--poof", shouldPoof )
+                    , ( "emoji--selected", isSelected )
                     ]
                 ]
                 []
@@ -286,19 +388,19 @@ scoresFromGroups groups =
         individualGroupScore : Group -> Int
         individualGroupScore group =
             case group of
-                GroupOf3 a b c ->
+                GroupOf3 _ _ _ ->
                     10
 
-                GroupOf4 a b c d ->
+                GroupOf4 _ _ _ _ ->
                     20
 
-                GroupOf5 a b c d e ->
+                GroupOf5 _ _ _ _ _ ->
                     30
 
-                GroupOf6 a b c d e f ->
+                GroupOf6 _ _ _ _ _ _ ->
                     50
 
-                GroupOf7 a b c d e f g ->
+                GroupOf7 _ _ _ _ _ _ _ ->
                     100
 
         comboScore : Int
@@ -343,10 +445,10 @@ toGroups indexes =
         [] ->
             Nothing
 
-        a :: [] ->
+        _ :: [] ->
             Nothing
 
-        a :: b :: [] ->
+        _ :: _ :: [] ->
             Nothing
 
         a :: b :: c :: [] ->
@@ -366,11 +468,6 @@ toGroups indexes =
 
         _ ->
             Nothing
-
-
-to2DList : Array (Array item) -> List (List item)
-to2DList arrays =
-    arrays |> Array.map Array.toList |> Array.toList
 
 
 toIndexed2DList : Array (Array item) -> List (List ( ( Int, Int ), item ))
