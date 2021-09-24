@@ -11,6 +11,8 @@ type Phase
     | AnimatingUndoSwap
     | AnimatingScore
     | AnimatingDrop
+    | CheckForMatches1
+    | CheckForMatches2
 
 
 init : Phase
@@ -18,39 +20,106 @@ init =
     WaitingForUser
 
 
-next :
-    { boardHasPoints : Bool
-    , animationMsg : msg
-    , phase : Phase
+type alias Update msg =
+    { phase : Phase
+    , grid : Grid
+    , score : Int
+    , cmd : Cmd msg
     }
-    -> ( Phase, Cmd msg )
-next { boardHasPoints, animationMsg, phase } =
+
+
+next :
+    { animationMsg : msg
+    , phase : Phase
+    , grid : Grid
+    , score : Int
+    }
+    -> Update msg
+next { grid, animationMsg, score, phase } =
+    let
+        newScore =
+            Game.Grid.currentPointsOnBoard settledGrid + score
+
+        animation =
+            animate animationMsg
+
+        settledGrid =
+            Game.Grid.settle grid
+
+        hasPointsOnBoard =
+            Game.Grid.currentPointsOnBoard settledGrid > 0
+
+        update =
+            { phase = phase
+            , grid = grid
+            , score = newScore
+            , cmd = Cmd.none
+            }
+    in
     case phase of
         WaitingForUser ->
-            ( AnimatingSwap, animate animationMsg )
+            { update
+                | phase = AnimatingSwap
+                , cmd = animation
+            }
 
         AnimatingSwap ->
-            if boardHasPoints then
-                ( AnimatingScore, animate animationMsg )
+            if hasPointsOnBoard then
+                { update
+                    | phase = AnimatingScore
+                    , grid = settledGrid
+                    , cmd = animation
+                }
 
             else
-                ( AnimatingUndoSwap, animate animationMsg )
+                { update
+                    | phase = AnimatingUndoSwap
+                    , grid = Game.Grid.undoSwap grid
+                    , cmd = animation
+                }
 
         AnimatingUndoSwap ->
-            ( WaitingForUser, Cmd.none )
+            { update
+                | phase = WaitingForUser
+                , grid = settledGrid
+            }
 
         AnimatingScore ->
-            ( AnimatingDrop, animate animationMsg )
+            { update
+                | phase = AnimatingDrop
+                , grid = Game.Grid.fillInDrops grid
+                , cmd = animation
+            }
 
         AnimatingDrop ->
-            if boardHasPoints then
-                ( AnimatingScore, animate animationMsg )
+            { update
+                | phase = CheckForMatches1
+                , grid = Game.Grid.clearTransforms grid
+                , cmd = animation
+            }
+
+        CheckForMatches1 ->
+            { update
+                | phase = CheckForMatches2
+                , cmd = animation
+            }
+
+        CheckForMatches2 ->
+            if hasPointsOnBoard then
+                { update
+                    | phase = AnimatingScore
+                    , grid = settledGrid
+                    , cmd = animation
+                }
 
             else
-                ( WaitingForUser, Cmd.none )
+                { update
+                    | phase = WaitingForUser
+                    , grid = settledGrid
+                }
 
 
 animate : msg -> Cmd msg
 animate msg =
-    Process.sleep 1000
+    Process.sleep 500
         |> Task.perform (\_ -> msg)

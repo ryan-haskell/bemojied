@@ -10,6 +10,19 @@ html, body {
   text-shadow: 0 2vw 4vw rgba(0, 0, 0, 0.25);
 }
 
+.font-score {
+  font-family: 'Jaldi', sans-serif;
+  font-size: 10vmin;
+  font-weight: bold;
+  text-shadow: 0 2vw 4vw rgba(0, 0, 0, 0.25);
+}
+
+.font-score::before {
+  content: 'Score: ';
+  opacity: 0.6;
+  font-weight: normal;
+}
+
 .font-subtitle {
   opacity: 0.65;
   font-size: 4vmin;
@@ -39,7 +52,8 @@ html, body {
 /* SLIDING */
 
 .animated__cell {
-  transition: transform 1000ms ease-in-out;
+  transition: transform 500ms ease-in-out;
+  padding: 1vmin;
 }
 
 /* EMOJI */
@@ -51,7 +65,7 @@ html, body {
   background-size: contain;
   background-repeat: no-repeat;
   font-size: 1vmin;
-  filter: drop-shadow(0 1em 0.5em #0008);
+  filter: drop-shadow(0 0.75em 0 #0008);
 }
 
 .emoji--bear  { background-image: url('/emojis/bear.png'); }
@@ -64,11 +78,11 @@ html, body {
 
 
 .emoji--selected {
-  animation: bob 1s ease-in-out infinite;
+  animation: bob 500ms ease-in-out infinite;
 }
 
 .emoji--poof {
-  animation: poof 1s ease-in-out forwards;
+  animation: poof 500ms ease-in-out forwards;
 }
 
 @keyframes bob {

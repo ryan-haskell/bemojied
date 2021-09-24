@@ -49,7 +49,8 @@ type Screen
 
 
 type alias State =
-    { grid : Game.Grid.Grid
+    { score : Int
+    , grid : Game.Grid.Grid
     , selected : Maybe Position
     , phase : Game.Phase.Phase
     }
@@ -94,22 +95,17 @@ update msg model =
                     Game.Grid.create
                         { seed = Time.posixToMillis model.currentTime
                         }
-
-                saveData =
-                    Game.SaveData.updateHighScore
-                        { current = Game.Grid.currentPointsOnBoard grid }
-                        model.saveData
             in
             ( { model
                 | screen =
                     InGame
-                        { grid = grid
+                        { score = 0
+                        , grid = grid
                         , selected = Nothing
                         , phase = Game.Phase.init
                         }
-                , saveData = saveData
               }
-            , Ports.saveGame saveData
+            , Cmd.none
             )
 
         QuitGameClicked ->
@@ -131,17 +127,22 @@ update msg model =
                     case state.phase of
                         Game.Phase.WaitingForUser ->
                             let
-                                ( nextPhase, cmd ) =
+                                next =
                                     case cellsToSwap of
                                         Just _ ->
                                             Game.Phase.next
-                                                { boardHasPoints = Game.Grid.currentPointsOnBoard state.grid > 0
-                                                , animationMsg = AnimationCompleted
+                                                { animationMsg = AnimationCompleted
                                                 , phase = state.phase
+                                                , grid = state.grid
+                                                , score = state.score
                                                 }
 
                                         Nothing ->
-                                            ( state.phase, Cmd.none )
+                                            { phase = state.phase
+                                            , grid = state.grid
+                                            , score = state.score
+                                            , cmd = Cmd.none
+                                            }
 
                                 ( selected, cellsToSwap ) =
                                     case state.selected of
@@ -163,17 +164,18 @@ update msg model =
                                     InGame
                                         { state
                                             | selected = selected
-                                            , phase = nextPhase
+                                            , phase = next.phase
+                                            , score = next.score
                                             , grid =
                                                 case cellsToSwap of
                                                     Just ( a, b ) ->
                                                         Game.Grid.swap a b state.grid
 
                                                     Nothing ->
-                                                        state.grid
+                                                        next.grid
                                         }
                               }
-                            , cmd
+                            , next.cmd
                             )
 
                         _ ->
@@ -186,31 +188,34 @@ update msg model =
 
                 InGame state ->
                     let
-                        grid =
-                            Game.Grid.settle state.grid
-
-                        ( nextPhase, cmd ) =
+                        next =
                             Game.Phase.next
-                                { boardHasPoints = Game.Grid.currentPointsOnBoard grid > 0
-                                , animationMsg = AnimationCompleted
+                                { animationMsg = AnimationCompleted
+                                , score = state.score
                                 , phase = state.phase
+                                , grid = state.grid
                                 }
+
+                        saveData =
+                            Game.SaveData.updateHighScore
+                                { current = next.score
+                                }
+                                model.saveData
                     in
                     ( { model
                         | screen =
                             InGame
                                 { state
-                                    | phase = nextPhase
-                                    , grid =
-                                        case ( state.phase, nextPhase ) of
-                                            ( Game.Phase.AnimatingSwap, Game.Phase.AnimatingUndoSwap ) ->
-                                                Game.Grid.undoSwap state.grid
-
-                                            _ ->
-                                                grid
+                                    | phase = next.phase
+                                    , grid = next.grid
+                                    , score = next.score
                                 }
+                        , saveData = saveData
                       }
-                    , cmd
+                    , Cmd.batch
+                        [ next.cmd
+                        , Ports.saveGame saveData
+                        ]
                     )
 
 
@@ -228,10 +233,7 @@ view model =
                     viewMainMenu model
 
                 InGame state ->
-                    Html.div [ Attr.class "col fill-y" ]
-                        [ Html.text (Debug.toString state.phase)
-                        , viewInGame model state
-                        ]
+                    viewInGame model state
             ]
         ]
     }
@@ -249,7 +251,7 @@ viewMainMenu model =
             ]
         , case Game.SaveData.highScore model.saveData of
             Just score ->
-                Html.h2 [ Attr.class "font-subtitle" ]
+                Html.h2 [ Attr.class "font-highscore" ]
                     [ Html.text ("Highscore: " ++ String.fromInt score)
                     ]
 
@@ -259,12 +261,14 @@ viewMainMenu model =
 
 
 viewInGame : Model -> State -> Html Msg
-viewInGame model state =
+viewInGame _ state =
     Html.div [ Attr.class "col center fill-y" ]
         [ Game.Grid.view
-            { selected = state.selected
+            { score = state.score
+            , selected = state.selected
             , grid = state.grid
             , onClick = ClickedEmoji
+            , shouldCheckForMatches = not (List.member state.phase [ Game.Phase.AnimatingDrop, Game.Phase.CheckForMatches1 ])
             }
         , Html.div [ Attr.class "fixed align-bottom pad-y-lg" ]
             [ Html.button [ Attr.class "button button--danger", Html.Events.onClick QuitGameClicked ]

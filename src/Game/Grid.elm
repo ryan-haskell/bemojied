@@ -1,14 +1,17 @@
 module Game.Grid exposing
     ( Grid
+    , clearTransforms
     , create
     , currentPointsOnBoard
+    , fillInDrops
     , settle
     , swap
+    , toIndexed2DList
     , undoSwap
+    , upwardLoop
     , view
     )
 
-import Array exposing (Array)
 import Dict exposing (Dict)
 import Game.Position exposing (Position)
 import Html exposing (Html)
@@ -17,7 +20,6 @@ import Html.Events
 import Html.Keyed
 import List.Extra
 import Random
-import Random.Array
 
 
 config : { size : Int, allowLuckyStart : Bool }
@@ -41,11 +43,11 @@ generateWithSeed seed =
     let
         ( grid, nextSeed ) =
             Random.step
-                (Random.map Grid generator)
+                (Random.map Grid (generator seed))
                 seed
     in
     if config.allowLuckyStart || List.isEmpty (checkForScoringGroups grid) then
-        grid
+        grid |> setSeed nextSeed
 
     else
         generateWithSeed nextSeed
@@ -66,6 +68,105 @@ swap p1 p2 (Grid grid) =
         }
 
 
+clearTransforms : Grid -> Grid
+clearTransforms (Grid grid) =
+    Grid { grid | transforms = Dict.empty, shouldCheck = False }
+
+
+fillInDrops : Grid -> Grid
+fillInDrops (Grid grid) =
+    let
+        positionsToRemove =
+            positionsFromGroups (checkForScoringGroups (Grid grid))
+
+        dictWithRemovedCells =
+            List.foldl Dict.remove
+                grid.dict
+                positionsToRemove
+
+        internals : Internals
+        internals =
+            List.foldl
+                (\x initial ->
+                    let
+                        { counter, transforms, dict } =
+                            upwardLoop initial x
+                    in
+                    generateNewEmojisAbove
+                        { x = x
+                        , count = counter
+                        }
+                        { grid
+                            | transforms = transforms
+                            , dict = dict
+                            , seed = initial.seed
+                        }
+                )
+                { grid
+                    | transforms = Dict.empty
+                    , dict = dictWithRemovedCells
+                }
+                (List.range 0 (config.size - 1))
+    in
+    Grid internals
+
+
+generateNewEmojisAbove : { x : Int, count : Int } -> Internals -> Internals
+generateNewEmojisAbove { x, count } internals =
+    let
+        ( newEmojis, newSeed ) =
+            Random.step (Random.list count emoji) internals.seed
+
+        newEmojiDict : Dict ( Int, Int ) Emoji
+        newEmojiDict =
+            List.indexedMap (\y e -> ( ( x, y ), e )) newEmojis
+                |> Dict.fromList
+    in
+    { internals
+        | seed = newSeed
+        , dict = Dict.union newEmojiDict internals.dict
+        , transforms =
+            List.foldl (\( _, y ) t -> Dict.insert ( x, y ) { current = ( x, y - count ), target = ( x, y ) } t)
+                internals.transforms
+                (Dict.keys newEmojiDict)
+    }
+
+
+upwardLoop :
+    { a
+        | transforms : Dict Position Transform
+        , dict : Dict Position item
+    }
+    -> Int
+    ->
+        { counter : Int
+        , transforms : Dict Position Transform
+        , dict : Dict Position item
+        }
+upwardLoop initial x =
+    List.foldr
+        (\y ({ counter, transforms, dict } as data) ->
+            case Dict.get ( x, y ) initial.dict of
+                Nothing ->
+                    { data | counter = counter + 1 }
+
+                Just item ->
+                    if counter > 0 then
+                        { data
+                            | transforms = Dict.insert ( x, y + counter ) { current = ( x, y ), target = ( x, y + counter ) } transforms
+                            , dict = Dict.insert ( x, y + counter ) item dict
+                        }
+
+                    else
+                        data
+        )
+        { counter = 0
+        , transforms = initial.transforms
+        , dict = initial.dict
+        }
+        (List.range 0 (config.size - 1))
+
+
 undoSwap : Grid -> Grid
 undoSwap (Grid grid) =
     Grid
@@ -82,55 +183,43 @@ settle : Grid -> Grid
 settle (Grid grid) =
     Grid
         { grid
-            | arrays =
+            | dict =
                 List.foldl
-                    (\{ current, target } arrays ->
-                        case getEmojiAt current grid.arrays of
+                    (\{ current, target } dict ->
+                        case Dict.get current grid.dict of
                             Just e ->
-                                setEmojiAt target e arrays
+                                Dict.insert target e dict
 
                             Nothing ->
-                                arrays
+                                dict
                     )
-                    grid.arrays
+                    grid.dict
                     (Dict.values grid.transforms)
             , transforms = Dict.empty
+            , shouldCheck = True
         }
 
 
-setEmojiAt : Position -> Emoji -> Array (Array Emoji) -> Array (Array Emoji)
-setEmojiAt ( x, y ) e array =
-    case Array.get y array of
-        Just inner ->
-            Array.set y (Array.set x e inner) array
-
-        Nothing ->
-            array
-
-
-getEmojiAt : Position -> Array (Array Emoji) -> Maybe Emoji
-getEmojiAt ( x, y ) arrays =
-    arrays |> Array.get y |> Maybe.andThen (Array.get x)
-
-
 view :
-    { onClick : Position -> msg
+    { score : Int
+    , onClick : Position -> msg
     , selected : Maybe Position
     , grid : Grid
+    , shouldCheckForMatches : Bool
     }
     -> Html msg
 view options =
     let
-        (Grid { arrays, transforms }) =
+        (Grid { dict, transforms }) =
             options.grid
 
         listOfLists : List (List (Indexed Emoji))
         listOfLists =
-            toIndexed2DList arrays
+            toIndexed2DList dict
 
         viewRow : List (Indexed Emoji) -> Html msg
         viewRow row =
-            Html.div [ Attr.class "row" ]
+            Html.div [ Attr.class "col" ]
                 (List.map viewCell row)
 
         scoringGroups : List Group
@@ -155,23 +244,26 @@ view options =
                 [ Attr.class "grid__cell" ]
                 [ ( idToString emoji_.id
                   , Html.div
-                        [ Attr.class "animated__cell"
-                        , Attr.style "position" "absolute"
-                        , case Dict.get position transforms of
-                            Just transform ->
-                                toCssTransform transform
+                        ([ Attr.class "animated__cell"
+                         , Attr.style "width" (vmin size)
+                         , Attr.style "height" (vmin size)
+                         ]
+                            ++ (case Dict.get position transforms of
+                                    Just transform ->
+                                        if ( x, y ) == transform.current then
+                                            [ toCssTransform transform ]
 
-                            Nothing ->
-                                Attr.style "transform" "none"
-                        , Attr.style "top" (vmin (size * y))
-                        , Attr.style "left" (vmin (size * x))
-                        , Attr.style "width" (vmin size)
-                        , Attr.style "height" (vmin size)
-                        ]
+                                        else
+                                            [ toDropCssTransform transform ]
+
+                                    Nothing ->
+                                        []
+                               )
+                        )
                         [ viewEmoji
                             { onClick = options.onClick position
                             , isSelected = options.selected == Just position
-                            , shouldPoof = List.member position scoringPositions
+                            , shouldPoof = List.member position scoringPositions && options.shouldCheckForMatches
                             }
                             emoji_
                         ]
@@ -179,8 +271,8 @@ view options =
                 ]
     in
     Html.div [ Attr.class "col gap-md center-x" ]
-        [ Html.div [ Attr.class "font-subtitle" ] [ Html.text ("Score: " ++ String.fromInt (scoresFromGroups scoringGroups)) ]
-        , Html.div [ Attr.class "col relative" ]
+        [ Html.div [ Attr.class "font-score" ] [ Html.text (String.fromInt options.score) ]
+        , Html.div [ Attr.class "row relative clip" ]
             (List.map viewRow listOfLists)
         ]
 
@@ -195,7 +287,9 @@ currentPointsOnBoard grid =
 
 
 type alias Internals =
-    { arrays : Array (Array Emoji)
+    { seed : Random.Seed
+    , shouldCheck : Bool
+    , dict : Dict Position Emoji
     , transforms : Dict Position Transform
     }
 
@@ -211,6 +305,14 @@ toCssTransform { current, target } =
     "translate(${x}00%, ${y}00%)"
         |> String.replace "${x}" (String.fromInt (Tuple.first target - Tuple.first current))
         |> String.replace "${y}" (String.fromInt (Tuple.second target - Tuple.second current))
+        |> Attr.style "transform"
+
+
+toDropCssTransform : Transform -> Html.Attribute msg
+toDropCssTransform { current, target } =
+    "translate(${x}00%, ${y}00%)"
+        |> String.replace "${x}" (String.fromInt (Tuple.first current - Tuple.first target))
+        |> String.replace "${y}" (String.fromInt (Tuple.second current - Tuple.second target))
         |> Attr.style "transform"
 
 
@@ -239,10 +341,13 @@ type EmojiStyle
     | Bear
 
 
-generator : Random.Generator Internals
-generator =
-    Random.map2 Internals
-        (Random.Array.array config.size (Random.Array.array config.size emoji))
+generator : Random.Seed -> Random.Generator Internals
+generator seed =
+    Random.map2 (Internals seed True)
+        (Random.list (config.size * config.size) emoji
+            |> Random.map
+                (List.indexedMap (\i e -> ( ( modBy config.size i, i // config.size ), e )) >> Dict.fromList)
+        )
         (Random.constant Dict.empty)
 
 
@@ -316,7 +421,7 @@ checkForScoringGroups (Grid internals) =
     let
         lists : List (List ( ( Int, Int ), Emoji ))
         lists =
-            toIndexed2DList internals.arrays
+            toIndexed2DList internals.dict
 
         rows : List (List ( ( Int, Int ), Emoji ))
         rows =
@@ -470,13 +575,12 @@ toGroups indexes =
             Nothing
 
 
-toIndexed2DList : Array (Array item) -> List (List ( ( Int, Int ), item ))
-toIndexed2DList arrays =
-    arrays
-        |> Array.indexedMap
-            (\y ->
-                Array.toList
-                    << Array.indexedMap
-                        (\x item -> ( ( x, y ), item ))
-            )
-        |> Array.toList
+toIndexed2DList : Dict ( Int, Int ) item -> List (List (Indexed item))
+toIndexed2DList dict =
+    Dict.toList dict
+        |> List.Extra.groupsOf config.size
+
+
+setSeed : Random.Seed -> Grid -> Grid
+setSeed seed (Grid grid) =
+    Grid { grid | seed = seed }
