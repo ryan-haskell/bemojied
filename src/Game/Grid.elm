@@ -70,7 +70,7 @@ swap p1 p2 (Grid grid) =
 
 clearTransforms : Grid -> Grid
 clearTransforms (Grid grid) =
-    Grid { grid | transforms = Dict.empty, shouldCheck = False }
+    Grid { grid | transforms = Dict.empty }
 
 
 fillInDrops : Grid -> Grid
@@ -196,7 +196,6 @@ settle (Grid grid) =
                     grid.dict
                     (Dict.values grid.transforms)
             , transforms = Dict.empty
-            , shouldCheck = True
         }
 
 
@@ -232,33 +231,24 @@ view options =
 
         viewCell : Indexed Emoji -> Html msg
         viewCell ( ( x, y ) as position, emoji_ ) =
-            let
-                size =
-                    12
-
-                vmin : Int -> String
-                vmin num =
-                    String.fromInt num ++ "vmin"
-            in
             Html.Keyed.node "div"
                 [ Attr.class "grid__cell" ]
                 [ ( idToString emoji_.id
                   , Html.div
-                        ([ Attr.class "animated__cell"
-                         , Attr.style "width" (vmin size)
-                         , Attr.style "height" (vmin size)
-                         ]
-                            ++ (case Dict.get position transforms of
-                                    Just transform ->
-                                        if ( x, y ) == transform.current then
-                                            [ toCssTransform transform ]
+                        (case Dict.get position transforms of
+                            Just transform ->
+                                if ( x, y ) == transform.current then
+                                    [ Attr.class "animated__cell"
+                                    , toCssTransform transform
+                                    ]
 
-                                        else
-                                            [ toDropCssTransform transform ]
+                                else
+                                    [ Attr.class "animated__cell"
+                                    , toDropCssTransform transform
+                                    ]
 
-                                    Nothing ->
-                                        []
-                               )
+                            Nothing ->
+                                [ Attr.class "animated__cell" ]
                         )
                         [ viewEmoji
                             { onClick = options.onClick position
@@ -288,7 +278,6 @@ currentPointsOnBoard grid =
 
 type alias Internals =
     { seed : Random.Seed
-    , shouldCheck : Bool
     , dict : Dict Position Emoji
     , transforms : Dict Position Transform
     }
@@ -343,7 +332,7 @@ type EmojiStyle
 
 generator : Random.Seed -> Random.Generator Internals
 generator seed =
-    Random.map2 (Internals seed True)
+    Random.map2 (Internals seed)
         (Random.list (config.size * config.size) emoji
             |> Random.map
                 (List.indexedMap (\i e -> ( ( modBy config.size i, i // config.size ), e )) >> Dict.fromList)

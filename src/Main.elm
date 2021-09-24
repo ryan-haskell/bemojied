@@ -225,7 +225,7 @@ update msg model =
 
 view : Model -> Browser.Document Msg
 view model =
-    { title = "Fremojied"
+    { title = "Bemojied"
     , body =
         [ Html.div [ Attr.class "col fill-y" ]
             [ case model.screen of
@@ -243,7 +243,7 @@ viewMainMenu : Model -> Html Msg
 viewMainMenu model =
     Html.div [ Attr.class "col gap-lg center fill-y" ]
         [ Html.div [ Attr.class "col gap-md center" ]
-            [ Html.h1 [ Attr.class "font-title" ] [ Html.text "Fremojied" ]
+            [ Html.h1 [ Attr.class "font-title" ] [ Html.text "Bemojied" ]
             , Html.h2 [ Attr.class "font-subtitle" ] [ Html.text "Score points and feel nice!" ]
             ]
         , Html.button [ Attr.class "button", Html.Events.onClick PlayGameClicked ]
@@ -252,7 +252,7 @@ viewMainMenu model =
         , case Game.SaveData.highScore model.saveData of
             Just score ->
                 Html.h2 [ Attr.class "font-highscore" ]
-                    [ Html.text ("Highscore: " ++ String.fromInt score)
+                    [ Html.text (String.fromInt score)
                     ]
 
             Nothing ->
@@ -268,7 +268,13 @@ viewInGame _ state =
             , selected = state.selected
             , grid = state.grid
             , onClick = ClickedEmoji
-            , shouldCheckForMatches = not (List.member state.phase [ Game.Phase.AnimatingDrop, Game.Phase.CheckForMatches1 ])
+            , shouldCheckForMatches =
+                not
+                    (List.member state.phase
+                        [ Game.Phase.AnimatingDrop
+                        , Game.Phase.CheckForMatches1
+                        ]
+                    )
             }
         , Html.div [ Attr.class "fixed align-bottom pad-y-lg" ]
             [ Html.button [ Attr.class "button button--danger", Html.Events.onClick QuitGameClicked ]

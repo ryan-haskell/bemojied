@@ -109,7 +109,6 @@ next { grid, animationMsg, score, phase } =
             if hasPointsOnBoard then
                 { update
                     | phase = AnimatingScore
-                    , score = newScore
                     , grid = settledGrid
                     , cmd = animation
                 }
