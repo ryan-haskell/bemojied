@@ -3,6 +3,7 @@ module Game.Grid exposing (Grid, create, currentScore, view)
 import Array exposing (Array)
 import Html exposing (Html)
 import Html.Attributes as Attr
+import Html.Keyed
 import List.Extra
 import Random
 import Random.Array
@@ -71,21 +72,35 @@ view options =
             positionsFromGroups scoringGroups
 
         viewCell : Indexed Emoji -> Html msg
-        viewCell ( position, emoji_ ) =
-            Html.div
-                [ Attr.class "grid__cell"
-                , Attr.classList
-                    [ ( "grid__cell--poof"
-                      , List.member position scoringPositions
+        viewCell ( ( x, y ) as position, emoji_ ) =
+            let
+                size =
+                    12
+
+                vmin : Int -> String
+                vmin num =
+                    String.fromInt num ++ "vmin"
+            in
+            Html.div [ Attr.class "grid__cell" ]
+                [ Html.Keyed.node "div"
+                    [ Attr.style "position" "absolute"
+                    , Attr.style "top" (vmin (size * y))
+                    , Attr.style "left" (vmin (size * x))
+                    , Attr.style "width" (vmin size)
+                    , Attr.style "height" (vmin size)
+                    ]
+                    [ ( idToString emoji_.id
+                      , viewEmoji
+                            { shouldPoof = List.member position scoringPositions
+                            }
+                            emoji_
                       )
                     ]
-                ]
-                [ viewEmoji emoji_
                 ]
     in
     Html.div [ Attr.class "col gap-md center-x" ]
         [ Html.div [ Attr.class "font-subtitle" ] [ Html.text ("Score: " ++ String.fromInt (scoresFromGroups scoringGroups)) ]
-        , Html.div [ Attr.class "col" ]
+        , Html.div [ Attr.class "col relative" ]
             (List.map viewRow listOfLists)
         ]
 
@@ -104,7 +119,22 @@ type alias Internals =
     }
 
 
-type Emoji
+type alias Emoji =
+    { id : Id
+    , style : EmojiStyle
+    }
+
+
+type Id
+    = Id Int
+
+
+idToString : Id -> String
+idToString (Id num) =
+    String.fromInt num
+
+
+type EmojiStyle
     = Dog
     | Cat
     | Mouse
@@ -122,24 +152,41 @@ generator =
 
 emoji : Random.Generator Emoji
 emoji =
-    Random.uniform Dog
-        [ Cat
-        , Mouse
-        , Pig
-        , Frog
-        , Fox
-        , Bear
-        ]
+    Random.map2 Emoji
+        id
+        (Random.uniform Dog
+            [ Cat
+            , Mouse
+            , Pig
+            , Frog
+            , Fox
+            , Bear
+            ]
+        )
 
 
-viewEmoji : Emoji -> Html msg
-viewEmoji emoji_ =
+id : Random.Generator Id
+id =
+    Random.map Id
+        (Random.int 0 Random.maxInt)
+
+
+viewEmoji : { shouldPoof : Bool } -> Emoji -> Html msg
+viewEmoji { shouldPoof } emoji_ =
     let
         image : String -> Html msg
         image name =
-            Html.div [ Attr.class ("emoji emoji--" ++ name) ] []
+            Html.div
+                [ Attr.class ("emoji emoji--" ++ name)
+                , Attr.classList
+                    [ ( "emoji--poof"
+                      , shouldPoof
+                      )
+                    ]
+                ]
+                []
     in
-    case emoji_ of
+    case emoji_.style of
         Dog ->
             image "dog"
 
@@ -177,9 +224,9 @@ checkForScoringGroups (Grid internals) =
         columns =
             List.Extra.transpose lists
 
-        sameEmoji : ( a, b ) -> ( a, b ) -> Bool
-        sameEmoji ( _, b1 ) ( _, b2 ) =
-            b1 == b2
+        sameEmoji : ( a, Emoji ) -> ( a, Emoji ) -> Bool
+        sameEmoji ( _, e1 ) ( _, e2 ) =
+            e1.style == e2.style
 
         toNormalList : ( a, List a ) -> List a
         toNormalList ( x, xs ) =

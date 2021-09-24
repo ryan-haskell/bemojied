@@ -31,9 +31,8 @@ html, body {
 }
 
 .grid__cell {
-  width: 13vmin;
-  height: 13vmin;
-  padding: 1vmin;
+  width: 12vmin;
+  height: 12vmin;
   cursor: pointer;
 }
 
@@ -48,13 +47,9 @@ html, body {
   filter: drop-shadow(0 1em 0.5em #0008);
 }
 
-.emoji:hover {
+/* .emoji:hover {
   animation: bob 1s ease-in-out;
-}
-
-.grid__cell--poof {
-  animation: poof 1s ease-in-out forwards;
-}
+} */
 
 .emoji--bear  { background-image: url('/emojis/bear.png'); }
 .emoji--cat   { background-image: url('/emojis/cat.png'); }
@@ -64,6 +59,10 @@ html, body {
 .emoji--mouse { background-image: url('/emojis/mouse.png'); }
 .emoji--pig   { background-image: url('/emojis/pig.png'); }
 
+
+.emoji--poof {
+  animation: poof 1s ease-in-out forwards;
+}
 
 @keyframes bob {
   0%, 100% { transform: none; }
