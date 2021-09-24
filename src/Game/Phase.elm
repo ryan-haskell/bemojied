@@ -52,7 +52,7 @@ next { grid, animationMsg, score, phase } =
         update =
             { phase = phase
             , grid = grid
-            , score = newScore
+            , score = score
             , cmd = Cmd.none
             }
     in
@@ -67,6 +67,7 @@ next { grid, animationMsg, score, phase } =
             if hasPointsOnBoard then
                 { update
                     | phase = AnimatingScore
+                    , score = newScore
                     , grid = settledGrid
                     , cmd = animation
                 }
@@ -108,6 +109,7 @@ next { grid, animationMsg, score, phase } =
             if hasPointsOnBoard then
                 { update
                     | phase = AnimatingScore
+                    , score = newScore
                     , grid = settledGrid
                     , cmd = animation
                 }
