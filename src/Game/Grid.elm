@@ -1,8 +1,11 @@
 module Game.Grid exposing
     ( Grid
+    , Group
+    , calculateScoreFrom
     , clearTransforms
     , create
     , currentPointsOnBoard
+    , currentScoringGroups
     , fillInDrops
     , hasNoMoreMoves
     , settle
@@ -65,7 +68,7 @@ scoredNoPoints grid swap_ =
     grid
         |> swap swap_.left swap_.right
         |> settle
-        |> checkForScoringGroups
+        |> currentScoringGroups
         |> List.isEmpty
 
 
@@ -86,7 +89,7 @@ generateWithSeed seed =
                 (Random.map Grid (generator seed))
                 seed
     in
-    if config.allowLuckyStart || List.isEmpty (checkForScoringGroups grid) then
+    if config.allowLuckyStart || List.isEmpty (currentScoringGroups grid) then
         grid |> setSeed nextSeed
 
     else
@@ -117,7 +120,7 @@ fillInDrops : Grid -> Grid
 fillInDrops (Grid grid) =
     let
         positionsToRemove =
-            positionsFromGroups (checkForScoringGroups (Grid grid))
+            positionsFromGroups (currentScoringGroups (Grid grid))
 
         dictWithRemovedCells =
             List.foldl Dict.remove
@@ -265,7 +268,7 @@ view options =
 
         scoringGroups : List Group
         scoringGroups =
-            checkForScoringGroups options.grid
+            currentScoringGroups options.grid
 
         scoringPositions : List Position
         scoringPositions =
@@ -332,7 +335,7 @@ view options =
 
 currentPointsOnBoard : Grid -> Int
 currentPointsOnBoard grid =
-    scoresFromGroups (checkForScoringGroups grid)
+    calculateScoreFrom (currentScoringGroups grid)
 
 
 
@@ -468,8 +471,8 @@ viewEmoji { onClick, isSelected, shouldPoof } emoji_ =
             image "bear"
 
 
-checkForScoringGroups : Grid -> List Group
-checkForScoringGroups (Grid internals) =
+currentScoringGroups : Grid -> List Group
+currentScoringGroups (Grid internals) =
     let
         lists : List (List ( ( Int, Int ), Emoji ))
         lists =
@@ -536,8 +539,8 @@ positionsFromGroup group =
             [ a, b, c, d, e, f, g ]
 
 
-scoresFromGroups : List Group -> Int
-scoresFromGroups groups =
+calculateScoreFrom : List Group -> Int
+calculateScoreFrom groups =
     let
         levelMultiplier =
             1

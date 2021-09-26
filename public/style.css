@@ -148,3 +148,58 @@ html, body {
   box-shadow: 0 2em 4em rgba(0, 0, 0, 0.25);
   text-shadow: 0 1em 2em rgba(0, 0, 0, 0.15);
 }
+
+.combo {
+  position: absolute;
+  top: -0.5em;
+  font-size: 6vmin;
+  left: 0;
+  right: 0;
+  font-family: 'Jaldi', sans-serif;
+  text-shadow: 0 0.25em 1em rgba(0, 0, 0, 0.75);
+}
+
+.combo__count {
+  color: white;
+  position: absolute;
+  left: 2vmin;
+  font-weight: bold;
+  align-items: baseline;
+  transform: rotate(-15deg) scale(0);
+  transition: transform 200ms ease-in;
+}
+
+.combo__count.combo--visible {
+  transform: rotate(-15deg) scale(1); 
+}
+
+.combo__count::before {
+  font-weight: normal;
+  content: 'COMBO x ';
+  opacity: 0.75;
+}
+
+.combo__count::after {
+  font-weight: normal;
+  content: ' !';
+  opacity: 0.75;
+}
+
+.combo__points {
+  font-size: 8vmin;
+  position: absolute;
+  right: 0.5em;
+  font-weight: bold;
+  transform: rotate(15deg) scale(0);
+  transition: transform 200ms ease-in;
+}
+
+.combo__points.combo--visible {
+  transform: rotate(15deg) scale(1); 
+}
+
+.combo__points::before {
+  font-weight: normal;
+  content: '+ ';
+  opacity: 0.75;
+}

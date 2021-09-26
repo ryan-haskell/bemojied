@@ -51,6 +51,7 @@ type Screen
 type alias State =
     { score : Int
     , grid : Game.Grid.Grid
+    , combos : List Game.Grid.Group
     , selected : Maybe Position
     , phase : Game.Phase.Phase
     }
@@ -101,6 +102,7 @@ update msg model =
                     InGame
                         { score = 0
                         , grid = grid
+                        , combos = []
                         , selected = Nothing
                         , phase = Game.Phase.init
                         }
@@ -135,12 +137,14 @@ update msg model =
                                                 , phase = state.phase
                                                 , grid = state.grid
                                                 , score = state.score
+                                                , combos = state.combos
                                                 }
 
                                         Nothing ->
                                             { phase = state.phase
                                             , grid = state.grid
                                             , score = state.score
+                                            , combos = state.combos
                                             , cmd = Cmd.none
                                             }
 
@@ -166,6 +170,7 @@ update msg model =
                                             | selected = selected
                                             , phase = next.phase
                                             , score = next.score
+                                            , combos = next.combos
                                             , grid =
                                                 case cellsToSwap of
                                                     Just ( a, b ) ->
@@ -194,6 +199,7 @@ update msg model =
                                 , score = state.score
                                 , phase = state.phase
                                 , grid = state.grid
+                                , combos = state.combos
                                 }
 
                         saveData =
@@ -209,6 +215,7 @@ update msg model =
                                     | phase = next.phase
                                     , grid = next.grid
                                     , score = next.score
+                                    , combos = next.combos
                                 }
                         , saveData = saveData
                       }
@@ -262,27 +269,52 @@ viewMainMenu model =
 
 viewInGame : Model -> State -> Html Msg
 viewInGame _ state =
+    let
+        comboCount =
+            List.length state.combos
+
+        runningComboScore =
+            Game.Grid.calculateScoreFrom state.combos
+    in
     Html.div [ Attr.class "col center fill-y" ]
         [ Html.div [ Attr.class "fixed align-bottom pad-y-lg" ]
             [ Html.button [ Attr.class "button button--danger", Html.Events.onClick QuitGameClicked ]
                 [ Html.text "Quit game"
                 ]
             ]
-        , Game.Grid.view
-            { score = state.score
-            , selected = state.selected
-            , grid = state.grid
-            , onClick = ClickedEmoji
-            , shouldCheckForMatches =
-                not
-                    (List.member state.phase
-                        [ Game.Phase.AnimatingDrop
-                        , Game.Phase.CheckForMatches1
+        , Html.div [ Attr.class "relative" ]
+            [ Game.Grid.view
+                { score = state.score
+                , selected = state.selected
+                , grid = state.grid
+                , onClick = ClickedEmoji
+                , shouldCheckForMatches =
+                    not
+                        (List.member state.phase
+                            [ Game.Phase.AnimatingDrop
+                            , Game.Phase.CheckForMatchesStart
+                            ]
+                        )
+                , onNewGameClicked = PlayGameClicked
+                , onQuitGameClicked = QuitGameClicked
+                }
+            , Html.div [ Attr.class "combo" ]
+                [ Html.div
+                    [ Attr.class "combo__count"
+                    , Attr.classList
+                        [ ( "combo--visible", comboCount > 1 )
                         ]
-                    )
-            , onNewGameClicked = PlayGameClicked
-            , onQuitGameClicked = QuitGameClicked
-            }
+                    ]
+                    [ Html.text (String.fromInt comboCount) ]
+                , Html.div
+                    [ Attr.class "combo__points"
+                    , Attr.classList
+                        [ ( "combo--visible", runningComboScore > 0 )
+                        ]
+                    ]
+                    [ Html.text (String.fromInt runningComboScore) ]
+                ]
+            ]
         ]
 
 

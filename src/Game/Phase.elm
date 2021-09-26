@@ -11,8 +11,8 @@ type Phase
     | AnimatingUndoSwap
     | AnimatingScore
     | AnimatingDrop
-    | CheckForMatches1
-    | CheckForMatches2
+    | CheckForMatchesStart
+    | CheckForMatchesEnd
 
 
 init : Phase
@@ -25,6 +25,7 @@ type alias Update msg =
     , grid : Grid
     , score : Int
     , cmd : Cmd msg
+    , combos : List Game.Grid.Group
     }
 
 
@@ -33,13 +34,11 @@ next :
     , phase : Phase
     , grid : Grid
     , score : Int
+    , combos : List Game.Grid.Group
     }
     -> Update msg
-next { grid, animationMsg, score, phase } =
+next { grid, animationMsg, score, phase, combos } =
     let
-        newScore =
-            Game.Grid.currentPointsOnBoard settledGrid + score
-
         animation =
             animate animationMsg
 
@@ -54,6 +53,7 @@ next { grid, animationMsg, score, phase } =
             , grid = grid
             , score = score
             , cmd = Cmd.none
+            , combos = combos
             }
     in
     case phase of
@@ -67,7 +67,6 @@ next { grid, animationMsg, score, phase } =
             if hasPointsOnBoard then
                 { update
                     | phase = AnimatingScore
-                    , score = newScore
                     , grid = settledGrid
                     , cmd = animation
                 }
@@ -83,6 +82,7 @@ next { grid, animationMsg, score, phase } =
             { update
                 | phase = WaitingForUser
                 , grid = settledGrid
+                , combos = []
             }
 
         AnimatingScore ->
@@ -90,27 +90,27 @@ next { grid, animationMsg, score, phase } =
                 | phase = AnimatingDrop
                 , grid = Game.Grid.fillInDrops grid
                 , cmd = animation
+                , combos = combos ++ Game.Grid.currentScoringGroups settledGrid
             }
 
         AnimatingDrop ->
             { update
-                | phase = CheckForMatches1
+                | phase = CheckForMatchesStart
                 , grid = Game.Grid.clearTransforms grid
                 , cmd = animation
             }
 
-        CheckForMatches1 ->
+        CheckForMatchesStart ->
             { update
-                | phase = CheckForMatches2
+                | phase = CheckForMatchesEnd
                 , cmd = animation
             }
 
-        CheckForMatches2 ->
+        CheckForMatchesEnd ->
             if hasPointsOnBoard then
                 { update
                     | phase = AnimatingScore
                     , grid = settledGrid
-                    , score = newScore
                     , cmd = animation
                 }
 
@@ -118,6 +118,8 @@ next { grid, animationMsg, score, phase } =
                 { update
                     | phase = WaitingForUser
                     , grid = settledGrid
+                    , score = score + Game.Grid.calculateScoreFrom combos
+                    , combos = []
                 }
 
 
