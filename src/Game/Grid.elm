@@ -4,6 +4,7 @@ module Game.Grid exposing
     , create
     , currentPointsOnBoard
     , fillInDrops
+    , hasNoMoreMoves
     , settle
     , swap
     , toIndexed2DList
@@ -27,6 +28,45 @@ config =
     { size = 7
     , allowLuckyStart = False
     }
+
+
+type alias Swap =
+    { left : Position
+    , right : Position
+    }
+
+
+allPossibleSwaps : List Swap
+allPossibleSwaps =
+    let
+        toRow : (Int -> Int -> Swap) -> List Swap
+        toRow toSwap =
+            List.map2 toSwap
+                (List.range 0 (config.size - 1))
+                (List.range 1 (config.size - 1))
+    in
+    List.range 0 (config.size - 1)
+        |> List.concatMap
+            (\i ->
+                List.concat
+                    [ toRow (\a b -> Swap ( i, a ) ( i, b ))
+                    , toRow (\a b -> Swap ( a, i ) ( b, i ))
+                    ]
+            )
+
+
+hasNoMoreMoves : Grid -> Bool
+hasNoMoreMoves grid =
+    List.all (scoredNoPoints grid) allPossibleSwaps
+
+
+scoredNoPoints : Grid -> Swap -> Bool
+scoredNoPoints grid swap_ =
+    grid
+        |> swap swap_.left swap_.right
+        |> settle
+        |> checkForScoringGroups
+        |> List.isEmpty
 
 
 type Grid
@@ -205,6 +245,8 @@ view :
     , selected : Maybe Position
     , grid : Grid
     , shouldCheckForMatches : Bool
+    , onNewGameClicked : msg
+    , onQuitGameClicked : msg
     }
     -> Html msg
 view options =
@@ -264,6 +306,27 @@ view options =
         [ Html.div [ Attr.class "font-score" ] [ Html.text (String.fromInt options.score) ]
         , Html.div [ Attr.class "row relative clip" ]
             (List.map viewRow listOfLists)
+        , if options.shouldCheckForMatches && hasNoMoreMoves options.grid then
+            Html.div []
+                [ Html.div [ Attr.class "fixed fill popup__overlay" ] []
+                , Html.div [ Attr.class "fixed center" ]
+                    [ Html.div [ Attr.class "popup col gap-lg" ]
+                        [ Html.div [ Attr.class "col" ]
+                            [ Html.h3 [ Attr.class "popup__title" ]
+                                [ Html.text "Game over" ]
+                            , Html.p [ Attr.class "popup__subtitle" ]
+                                [ Html.text "There are no more moves left..." ]
+                            ]
+                        , Html.div [ Attr.class "row gap-md" ]
+                            [ Html.button [ Attr.class "popup__button", Html.Events.onClick options.onNewGameClicked ] [ Html.text "New game" ]
+                            , Html.button [ Attr.class "popup__button", Html.Events.onClick options.onQuitGameClicked ] [ Html.text "Back to menu" ]
+                            ]
+                        ]
+                    ]
+                ]
+
+          else
+            Html.text ""
         ]
 
 

@@ -263,7 +263,12 @@ viewMainMenu model =
 viewInGame : Model -> State -> Html Msg
 viewInGame _ state =
     Html.div [ Attr.class "col center fill-y" ]
-        [ Game.Grid.view
+        [ Html.div [ Attr.class "fixed align-bottom pad-y-lg" ]
+            [ Html.button [ Attr.class "button button--danger", Html.Events.onClick QuitGameClicked ]
+                [ Html.text "Quit game"
+                ]
+            ]
+        , Game.Grid.view
             { score = state.score
             , selected = state.selected
             , grid = state.grid
@@ -275,12 +280,9 @@ viewInGame _ state =
                         , Game.Phase.CheckForMatches1
                         ]
                     )
+            , onNewGameClicked = PlayGameClicked
+            , onQuitGameClicked = QuitGameClicked
             }
-        , Html.div [ Attr.class "fixed align-bottom pad-y-lg" ]
-            [ Html.button [ Attr.class "button button--danger", Html.Events.onClick QuitGameClicked ]
-                [ Html.text "Quit game"
-                ]
-            ]
         ]
 
 
