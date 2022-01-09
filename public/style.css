@@ -12,7 +12,7 @@ html, body {
 
 .font-score {
   font-family: 'Jaldi', sans-serif;
-  font-size: 10vmin;
+  font-size: 48px;
   font-weight: bold;
   text-shadow: 0 2vw 4vw rgba(0, 0, 0, 0.25);
 }
@@ -44,7 +44,7 @@ html, body {
 .button {
   cursor: pointer;
   font-family: 'Jaldi', sans-serif;
-  font-size: 6vmin;
+  font-size: 24px;
   background-color: dodgerblue;
   color: white;
   border-radius: 2vmin;
@@ -72,8 +72,8 @@ html, body {
   display: inline-flex;
   width: 14vmin;
   height: 14vmin;
-  max-width: 96px;
-  max-height: 96px;
+  max-width: 64px;
+  max-height: 64px;
   background-position: center;
   background-size: 90%;
   background-repeat: no-repeat;
