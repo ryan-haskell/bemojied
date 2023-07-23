@@ -410,10 +410,8 @@ emoji : Random.Generator Emoji
 emoji =
     Random.map2 Emoji
         id
-        (Random.uniform Dog
-            [ Cat
-            , Mouse
-            , Pig
+        (Random.uniform Mouse
+            [ Pig
             , Frog
             , Fox
             , Bear
